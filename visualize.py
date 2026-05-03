@@ -1,5 +1,6 @@
 import argparse
 import json
+import re
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -69,12 +70,20 @@ def main():
     else:
         d_model, d_ff = 64, 128
 
+    # Extract num_heads from filename (e.g., "Transformer_d64_ff128_mha4" -> 4)
+    num_heads = 1
+    if "mha" in stem:
+        match = re.search(r'mha(\d+)', stem)
+        if match:
+            num_heads = int(match.group(1))
+
     model = TransformerClassifier(
         vocab_size=meta["vocab_size"],
         d_model=d_model,
         d_ff=d_ff,
         max_len=meta["max_len"],
         num_classes=meta["num_classes"],
+        num_heads=num_heads,
     )
     model.load_state_dict(torch.load(model_path, map_location="cpu"))
     model.eval()
@@ -85,7 +94,13 @@ def main():
     with torch.no_grad():
         logits = model(torch.tensor([input_ids], dtype=torch.long))
         pred = logits.argmax(dim=-1).item()
-        weights = model.last_attention_weights[0, : len(tokens), : len(tokens)].cpu().numpy()
+        attn_weights = model.last_attention_weights[0]  # (seq_len, seq_len) or (num_heads, seq_len, seq_len)
+        
+        # Handle multi-head attention: average across heads for visualization
+        if attn_weights.dim() == 3:  # (num_heads, seq_len, seq_len)
+            attn_weights = attn_weights.mean(dim=0)  # Average -> (seq_len, seq_len)
+        
+        weights = attn_weights[: len(tokens), : len(tokens)].cpu().numpy()
 
     plt.figure(figsize=(6, 5))
     plt.imshow(weights)

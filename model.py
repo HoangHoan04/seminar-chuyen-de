@@ -19,15 +19,148 @@ def scaled_dot_product_attention(Q, K, V):
     d_k = Q.size(-1)
 
     # TODO: tinh scores = Q @ K^T / sqrt(d_k)
-    scores = ...
+    scores = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(d_k)
 
     # TODO: ap dung softmax tren chieu cuoi
-    weights = ...
+    weights = F.softmax(scores, dim=-1)
 
     # TODO: tinh output = weights @ V
-    output = ...
+    output = torch.matmul(weights, V)
 
     return output, weights
+
+
+# ============================================================
+# ĐIỂM CỘNG (+5 ĐIỂM): Multi-Head Attention
+# ============================================================
+class MultiHeadAttention(nn.Module):
+    """
+    Multi-Head Attention Layer - Cho phép mô hình chú ý đến nhiều khía cạnh khác nhau.
+    
+    Thay vì chỉ một bộ Q, K, V, tạo nhiều "heads" độc lập:
+    - Head 1: Chú ý vào tính từ (adjectives)
+    - Head 2: Chú ý vào động từ (verbs)
+    - Head 3: Chú ý vào quan hệ từ (pronouns)
+    
+    Công thức: MultiHead(Q,K,V) = Concat(head_1,...,head_h) W^O
+    Với mỗi head_i = Attention(Q*W_i^Q, K*W_i^K, V*W_i^V)
+    
+    Args:
+        d_model (int): Chiều embedding (ví dụ: 64)
+        num_heads (int): Số lượng attention heads (ví dụ: 4)
+    """
+    
+    def __init__(self, d_model: int, num_heads: int = 4):
+        super().__init__()
+        
+        # Kiểm tra d_model có chia hết cho num_heads
+        assert d_model % num_heads == 0, \
+            f"d_model ({d_model}) phải chia hết cho num_heads ({num_heads})"
+        
+        self.d_model = d_model
+        self.num_heads = num_heads
+        # Chiều của mỗi head: d_model=64, num_heads=4 => d_k=16
+        self.d_k = d_model // num_heads
+        
+        # Linear projections cho Q, K, V
+        # Mục đích: Học cách biểu diễn Q, K, V tối ưu cho attention
+        self.W_q = nn.Linear(d_model, d_model)
+        self.W_k = nn.Linear(d_model, d_model)
+        self.W_v = nn.Linear(d_model, d_model)
+        
+        # Output projection - ghép lại các heads
+        self.W_o = nn.Linear(d_model, d_model)
+        
+        # Lưu attention weights để dùng cho visualization
+        self.attention_weights = None
+    
+    def split_heads(self, x):
+        """
+        Chia tensor thành nhiều heads.
+        Input:  (batch, seq_len, d_model)
+        Output: (batch, num_heads, seq_len, d_k)
+        
+        Ví dụ: (32, 10, 64) với num_heads=4 -> (32, 4, 10, 16)
+        """
+        batch_size, seq_len, d_model = x.size()
+        # Reshape: (batch, seq_len, d_model) -> (batch, seq_len, num_heads, d_k)
+        x = x.view(batch_size, seq_len, self.num_heads, self.d_k)
+        # Transpose: (batch, seq_len, num_heads, d_k) -> (batch, num_heads, seq_len, d_k)
+        x = x.transpose(1, 2)
+        return x
+    
+    def combine_heads(self, x):
+        """
+        Ghép các heads lại thành một tensor duy nhất.
+        Input:  (batch, num_heads, seq_len, d_k)
+        Output: (batch, seq_len, d_model)
+        
+        Ví dụ: (32, 4, 10, 16) -> (32, 10, 64)
+        """
+        batch_size, num_heads, seq_len, d_k = x.size()
+        # Transpose: (batch, num_heads, seq_len, d_k) -> (batch, seq_len, num_heads, d_k)
+        x = x.transpose(1, 2)
+        # Reshape: (batch, seq_len, num_heads, d_k) -> (batch, seq_len, d_model)
+        x = x.contiguous().view(batch_size, seq_len, self.d_model)
+        return x
+    
+    def scaled_dot_product_attention_mha(self, Q, K, V):
+        """
+        Scaled Dot-Product Attention cho Multi-Head.
+        Input: Q, K, V shape (batch, num_heads, seq_len, d_k)
+        Output: context (batch, num_heads, seq_len, d_k), 
+                weights (batch, num_heads, seq_len, seq_len)
+        """
+        # BƯỚC 1: Tính scores = Q @ K^T / sqrt(d_k)
+        scores = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(self.d_k)
+        
+        # BƯỚC 2: Áp dụng softmax -> attention weights
+        weights = F.softmax(scores, dim=-1)
+        
+        # BƯỚC 3: Tính output = weights @ V
+        output = torch.matmul(weights, V)
+        
+        return output, weights
+    
+    def forward(self, query, key, value):
+        """
+        Forward pass Multi-Head Attention.
+        
+        Quy trình:
+        1. Chiếu Q, K, V qua linear layers
+        2. Chia thành num_heads
+        3. Tính attention cho mỗi head (song song)
+        4. Ghép heads lại
+        5. Chiếu output qua linear layer cuối
+        
+        Input: query, key, value shape (batch, seq_len, d_model)
+        Output: output shape (batch, seq_len, d_model)
+        """
+        batch_size = query.size(0)
+        
+        # BƯỚC 1: Chiếu Q, K, V
+        Q = self.W_q(query)
+        K = self.W_k(key)
+        V = self.W_v(value)
+        
+        # BƯỚC 2: Chia thành num_heads
+        Q = self.split_heads(Q)
+        K = self.split_heads(K)
+        V = self.split_heads(V)
+        
+        # BƯỚC 3: Tính attention cho từng head (song song)
+        output, weights = self.scaled_dot_product_attention_mha(Q, K, V)
+        
+        # Lưu weights để visualize
+        self.attention_weights = weights
+        
+        # BƯỚC 4: Ghép heads lại
+        output = self.combine_heads(output)
+        
+        # BƯỚC 5: Chiếu output
+        output = self.W_o(output)
+        
+        return output, weights
 
 
 class PositionalEncoding(nn.Module):
@@ -64,27 +197,38 @@ class FeedForwardNetwork(nn.Module):
     def __init__(self, d_model: int, d_ff: int):
         super().__init__()
         # TODO 2: Sinh vien tu cai dat FFN = Linear(d_model, d_ff) -> ReLU -> Linear(d_ff, d_model)
-        self.fc1 = ...
-        self.fc2 = ...
+        self.fc1 = nn.Linear(d_model, d_ff)
+        self.fc2 = nn.Linear(d_ff, d_model)
 
     def forward(self, x):
         # TODO 3: Viet forward pass cua FFN
-        x = ...
-        x = ...
-        x = ...
+        x = self.fc1(x)
+        x = F.relu(x)
+        x = self.fc2(x)
         return x
 
 
 class TransformerEncoderBlock(nn.Module):
-    def __init__(self, d_model: int, d_ff: int):
+    def __init__(self, d_model: int, d_ff: int, num_heads: int = 1):
         super().__init__()
-        self.self_attention = SelfAttention(d_model)
+        # Nếu num_heads > 1: Dùng MultiHeadAttention (+5 điểm)
+        # Nếu num_heads = 1: Dùng SelfAttention thông thường
+        if num_heads > 1:
+            self.self_attention = MultiHeadAttention(d_model, num_heads)
+            self.is_multihead = True
+        else:
+            self.self_attention = SelfAttention(d_model)
+            self.is_multihead = False
         self.norm1 = nn.LayerNorm(d_model)
         self.ffn = FeedForwardNetwork(d_model, d_ff)
         self.norm2 = nn.LayerNorm(d_model)
 
     def forward(self, x):
-        attn_out, attn_weights = self.self_attention(x)
+        # Multi-Head Attention cần pass (x, x, x), SelfAttention chỉ cần x
+        if self.is_multihead:
+            attn_out, attn_weights = self.self_attention(x, x, x)
+        else:
+            attn_out, attn_weights = self.self_attention(x)
         x = self.norm1(x + attn_out)
         ffn_out = self.ffn(x)
         x = self.norm2(x + ffn_out)
@@ -102,11 +246,12 @@ class ClassifierHead(nn.Module):
 
 
 class TransformerClassifier(nn.Module):
-    def __init__(self, vocab_size: int, d_model: int, d_ff: int, max_len: int, num_classes: int):
+    def __init__(self, vocab_size: int, d_model: int, d_ff: int, max_len: int, num_classes: int, num_heads: int = 1):
         super().__init__()
         self.embedding = nn.Embedding(vocab_size, d_model)
         self.pos_encoding = PositionalEncoding(d_model=d_model, max_len=max_len)
-        self.encoder = TransformerEncoderBlock(d_model=d_model, d_ff=d_ff)
+        # Thêm num_heads để hỗ trợ Multi-Head Attention (+5 điểm)
+        self.encoder = TransformerEncoderBlock(d_model=d_model, d_ff=d_ff, num_heads=num_heads)
         self.classifier = ClassifierHead(d_model=d_model, num_classes=num_classes)
         self.last_attention_weights = None
 
@@ -155,6 +300,32 @@ def _test_encoder_block():
     assert weights.shape == (2, 10, 10)
 
 
+def _test_multihead_attention():
+    """
+    Test Multi-Head Attention (+5 điểm)
+    Kiểm tra: shape đúng, weights tổng = 1, không có NaN
+    """
+    x = torch.randn(2, 10, 64)
+    mha = MultiHeadAttention(d_model=64, num_heads=4)
+    out, weights = mha(x, x, x)
+    
+    # Kiểm tra output shape
+    assert out.shape == (2, 10, 64), f"Output shape sai: {out.shape}"
+    
+    # Kiểm tra attention weights shape
+    # (batch, num_heads, seq_len, seq_len)
+    assert weights.shape == (2, 4, 10, 10), f"Weights shape sai: {weights.shape}"
+    
+    # Kiểm tra mỗi hàng trong weights tổng = 1.0
+    weights_sum = weights.sum(dim=-1)
+    assert torch.allclose(weights_sum, torch.ones_like(weights_sum), atol=1e-5), \
+        "Attention weights không sum bằng 1"
+    
+    # Kiểm tra không có NaN
+    assert not torch.isnan(out).any(), "Output có NaN"
+    assert not torch.isnan(weights).any(), "Weights có NaN"
+
+
 def run_tests():
     print("TEST: scaled_dot_product_attention ...", end=" ")
     _test_scaled_dot_product_attention()
@@ -170,6 +341,10 @@ def run_tests():
 
     print("TEST: TransformerEncoderBlock ......", end=" ")
     _test_encoder_block()
+    print("PASSED")
+
+    print("TEST: MultiHeadAttention (+5 điểm) ", end=" ")
+    _test_multihead_attention()
     print("PASSED")
 
     print("TAT CA TESTS PASSED -- model.py san sang de huan luyen!")
