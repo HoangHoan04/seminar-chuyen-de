@@ -87,6 +87,9 @@ def main():
         logits = model(torch.tensor([input_ids], dtype=torch.long))
         pred = logits.argmax(dim=-1).item()
         weights = model.last_attention_weights[0, : len(tokens), : len(tokens)].cpu().numpy()
+        # Lấy trung bình từ tất cả heads nếu MultiHeadAttention (shape: num_heads, seq_len, seq_len)
+        if weights.ndim == 3:
+            weights = weights.mean(axis=0)
 
     plt.figure(figsize=(6, 5))
     plt.imshow(weights)
