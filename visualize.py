@@ -75,6 +75,7 @@ def main():
         d_ff=d_ff,
         max_len=meta["max_len"],
         num_classes=meta["num_classes"],
+        num_heads=4,
     )
     model.load_state_dict(torch.load(model_path, map_location="cpu"))
     model.eval()

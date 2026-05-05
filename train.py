@@ -154,14 +154,14 @@ def main():
     configs = []
     if args.run_all:
         configs = [
-            ("Transformer_d64_ff128", TransformerClassifier(meta["vocab_size"], 64, 128, meta["max_len"], meta["num_classes"])),
-            ("Transformer_d128_ff256", TransformerClassifier(meta["vocab_size"], 128, 256, meta["max_len"], meta["num_classes"])),
-            ("Transformer_d32_ff64", TransformerClassifier(meta["vocab_size"], 32, 64, meta["max_len"], meta["num_classes"])),
+            ("Transformer_d64_ff128", TransformerClassifier(meta["vocab_size"], 64, 128, meta["max_len"], meta["num_classes"], num_heads=4)),
+            ("Transformer_d128_ff256", TransformerClassifier(meta["vocab_size"], 128, 256, meta["max_len"], meta["num_classes"], num_heads=4)),
+            ("Transformer_d32_ff64", TransformerClassifier(meta["vocab_size"], 32, 64, meta["max_len"], meta["num_classes"], num_heads=4)),
             ("MLPBaseline_d64", MLPBaseline(meta["vocab_size"], 64, meta["num_classes"])),
         ]
     else:
         configs = [
-            (f"Transformer_d{args.d_model}_ff{args.d_ff}", TransformerClassifier(meta["vocab_size"], args.d_model, args.d_ff, meta["max_len"], meta["num_classes"]))
+            (f"Transformer_d{args.d_model}_ff{args.d_ff}", TransformerClassifier(meta["vocab_size"], args.d_model, args.d_ff, meta["max_len"], meta["num_classes"], num_heads=args.num_heads))
         ]
 
     summary = []
