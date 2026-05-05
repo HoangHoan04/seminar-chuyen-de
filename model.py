@@ -31,24 +31,9 @@ def scaled_dot_product_attention(Q, K, V):
 
 
 # ============================================================
-# ĐIỂM CỘNG (+5 ĐIỂM): Multi-Head Attention
+# Multi-Head Attention
 # ============================================================
 class MultiHeadAttention(nn.Module):
-    """
-    Multi-Head Attention Layer - Cho phép mô hình chú ý đến nhiều khía cạnh khác nhau.
-    
-    Thay vì chỉ một bộ Q, K, V, tạo nhiều "heads" độc lập:
-    - Head 1: Chú ý vào tính từ (adjectives)
-    - Head 2: Chú ý vào động từ (verbs)
-    - Head 3: Chú ý vào quan hệ từ (pronouns)
-    
-    Công thức: MultiHead(Q,K,V) = Concat(head_1,...,head_h) W^O
-    Với mỗi head_i = Attention(Q*W_i^Q, K*W_i^K, V*W_i^V)
-    
-    Args:
-        d_model (int): Chiều embedding (ví dụ: 64)
-        num_heads (int): Số lượng attention heads (ví dụ: 4)
-    """
     
     def __init__(self, d_model: int, num_heads: int = 4):
         super().__init__()
@@ -75,13 +60,6 @@ class MultiHeadAttention(nn.Module):
         self.attention_weights = None
     
     def split_heads(self, x):
-        """
-        Chia tensor thành nhiều heads.
-        Input:  (batch, seq_len, d_model)
-        Output: (batch, num_heads, seq_len, d_k)
-        
-        Ví dụ: (32, 10, 64) với num_heads=4 -> (32, 4, 10, 16)
-        """
         batch_size, seq_len, d_model = x.size()
         # Reshape: (batch, seq_len, d_model) -> (batch, seq_len, num_heads, d_k)
         x = x.view(batch_size, seq_len, self.num_heads, self.d_k)
@@ -90,13 +68,6 @@ class MultiHeadAttention(nn.Module):
         return x
     
     def combine_heads(self, x):
-        """
-        Ghép các heads lại thành một tensor duy nhất.
-        Input:  (batch, num_heads, seq_len, d_k)
-        Output: (batch, seq_len, d_model)
-        
-        Ví dụ: (32, 4, 10, 16) -> (32, 10, 64)
-        """
         batch_size, num_heads, seq_len, d_k = x.size()
         # Transpose: (batch, num_heads, seq_len, d_k) -> (batch, seq_len, num_heads, d_k)
         x = x.transpose(1, 2)
@@ -105,12 +76,6 @@ class MultiHeadAttention(nn.Module):
         return x
     
     def scaled_dot_product_attention_mha(self, Q, K, V):
-        """
-        Scaled Dot-Product Attention cho Multi-Head.
-        Input: Q, K, V shape (batch, num_heads, seq_len, d_k)
-        Output: context (batch, num_heads, seq_len, d_k), 
-                weights (batch, num_heads, seq_len, seq_len)
-        """
         # BƯỚC 1: Tính scores = Q @ K^T / sqrt(d_k)
         scores = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(self.d_k)
         
@@ -123,21 +88,6 @@ class MultiHeadAttention(nn.Module):
         return output, weights
     
     def forward(self, query, key, value):
-        """
-        Forward pass Multi-Head Attention.
-        
-        Quy trình:
-        1. Chiếu Q, K, V qua linear layers
-        2. Chia thành num_heads
-        3. Tính attention cho mỗi head (song song)
-        4. Ghép heads lại
-        5. Chiếu output qua linear layer cuối
-        
-        Input: query, key, value shape (batch, seq_len, d_model)
-        Output: output shape (batch, seq_len, d_model)
-        """
-        batch_size = query.size(0)
-        
         # BƯỚC 1: Chiếu Q, K, V
         Q = self.W_q(query)
         K = self.W_k(key)
@@ -301,10 +251,6 @@ def _test_encoder_block():
 
 
 def _test_multihead_attention():
-    """
-    Test Multi-Head Attention (+5 điểm)
-    Kiểm tra: shape đúng, weights tổng = 1, không có NaN
-    """
     x = torch.randn(2, 10, 64)
     mha = MultiHeadAttention(d_model=64, num_heads=4)
     out, weights = mha(x, x, x)
@@ -343,7 +289,7 @@ def run_tests():
     _test_encoder_block()
     print("PASSED")
 
-    print("TEST: MultiHeadAttention (+5 điểm) ", end=" ")
+    print("TEST: MultiHeadAttention", end=" ")
     _test_multihead_attention()
     print("PASSED")
 
