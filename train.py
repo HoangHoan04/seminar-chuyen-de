@@ -132,7 +132,6 @@ def main():
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--d_model", type=int, default=64)
     parser.add_argument("--d_ff", type=int, default=128)
-    parser.add_argument("--num_heads", type=int, default=4)
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--num_epochs", type=int, default=20)
     parser.add_argument("--run_all", action="store_true")
@@ -154,14 +153,14 @@ def main():
     configs = []
     if args.run_all:
         configs = [
-            ("Transformer_d64_ff128", TransformerClassifier(meta["vocab_size"], 64, 128, meta["max_len"], meta["num_classes"], num_heads=4)),
-            ("Transformer_d128_ff256", TransformerClassifier(meta["vocab_size"], 128, 256, meta["max_len"], meta["num_classes"], num_heads=4)),
-            ("Transformer_d32_ff64", TransformerClassifier(meta["vocab_size"], 32, 64, meta["max_len"], meta["num_classes"], num_heads=4)),
+            ("Transformer_d64_ff128", TransformerClassifier(meta["vocab_size"], 64, 128, meta["max_len"], meta["num_classes"])),
+            ("Transformer_d128_ff256", TransformerClassifier(meta["vocab_size"], 128, 256, meta["max_len"], meta["num_classes"])),
+            ("Transformer_d32_ff64", TransformerClassifier(meta["vocab_size"], 32, 64, meta["max_len"], meta["num_classes"])),
             ("MLPBaseline_d64", MLPBaseline(meta["vocab_size"], 64, meta["num_classes"])),
         ]
     else:
         configs = [
-            (f"Transformer_d{args.d_model}_ff{args.d_ff}", TransformerClassifier(meta["vocab_size"], args.d_model, args.d_ff, meta["max_len"], meta["num_classes"], num_heads=args.num_heads))
+            (f"Transformer_d{args.d_model}_ff{args.d_ff}", TransformerClassifier(meta["vocab_size"], args.d_model, args.d_ff, meta["max_len"], meta["num_classes"]))
         ]
 
     summary = []

@@ -75,7 +75,6 @@ def main():
         d_ff=d_ff,
         max_len=meta["max_len"],
         num_classes=meta["num_classes"],
-        num_heads=4,
     )
     model.load_state_dict(torch.load(model_path, map_location="cpu"))
     model.eval()
@@ -86,14 +85,7 @@ def main():
     with torch.no_grad():
         logits = model(torch.tensor([input_ids], dtype=torch.long))
         pred = logits.argmax(dim=-1).item()
-        attn_weights = model.last_attention_weights[0]  # (seq_len, seq_len) or (num_heads, seq_len, seq_len)
-        
-        # Handle multi-head attention: average across heads for visualization
-        if attn_weights.dim() == 3:  # (num_heads, seq_len, seq_len)
-            attn_weights = attn_weights.mean(dim=0)  # Average -> (seq_len, seq_len)
-        
-        weights = attn_weights[: len(tokens), : len(tokens)].cpu().numpy()
-       
+        weights = model.last_attention_weights[0, : len(tokens), : len(tokens)].cpu().numpy()
 
     plt.figure(figsize=(6, 5))
     plt.imshow(weights)

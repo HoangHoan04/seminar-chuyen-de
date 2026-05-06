@@ -159,26 +159,15 @@ class FeedForwardNetwork(nn.Module):
 
 
 class TransformerEncoderBlock(nn.Module):
-    def __init__(self, d_model: int, d_ff: int, num_heads: int = 1):
+    def __init__(self, d_model: int, d_ff: int):
         super().__init__()
-        # Nếu num_heads > 1: Dùng MultiHeadAttention
-        # Nếu num_heads = 1: Dùng SelfAttention thông thường
-        if num_heads > 1:
-            self.self_attention = MultiHeadAttention(d_model, num_heads)
-            self.is_multihead = True
-        else:
-            self.self_attention = SelfAttention(d_model)
-            self.is_multihead = False
+        self.self_attention = SelfAttention(d_model)
         self.norm1 = nn.LayerNorm(d_model)
         self.ffn = FeedForwardNetwork(d_model, d_ff)
         self.norm2 = nn.LayerNorm(d_model)
 
     def forward(self, x):
-        # Multi-Head Attention cần pass (x, x, x), SelfAttention chỉ cần x
-        if self.is_multihead:
-            attn_out, attn_weights = self.self_attention(x, x, x)
-        else:
-            attn_out, attn_weights = self.self_attention(x)
+        attn_out, attn_weights = self.self_attention(x)
         x = self.norm1(x + attn_out)
         ffn_out = self.ffn(x)
         x = self.norm2(x + ffn_out)
@@ -196,12 +185,11 @@ class ClassifierHead(nn.Module):
 
 
 class TransformerClassifier(nn.Module):
-    def __init__(self, vocab_size: int, d_model: int, d_ff: int, max_len: int, num_classes: int, num_heads: int = 1):
+    def __init__(self, vocab_size: int, d_model: int, d_ff: int, max_len: int, num_classes: int):
         super().__init__()
         self.embedding = nn.Embedding(vocab_size, d_model)
         self.pos_encoding = PositionalEncoding(d_model=d_model, max_len=max_len)
-        # Thêm num_heads để hỗ trợ Multi-Head Attention
-        self.encoder = TransformerEncoderBlock(d_model=d_model, d_ff=d_ff, num_heads=num_heads)
+        self.encoder = TransformerEncoderBlock(d_model=d_model, d_ff=d_ff)
         self.classifier = ClassifierHead(d_model=d_model, num_classes=num_classes)
         self.last_attention_weights = None
 
