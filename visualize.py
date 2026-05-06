@@ -86,10 +86,14 @@ def main():
     with torch.no_grad():
         logits = model(torch.tensor([input_ids], dtype=torch.long))
         pred = logits.argmax(dim=-1).item()
-        weights = model.last_attention_weights[0, : len(tokens), : len(tokens)].cpu().numpy()
-        # Lấy trung bình từ tất cả heads nếu MultiHeadAttention (shape: num_heads, seq_len, seq_len)
-        if weights.ndim == 3:
-            weights = weights.mean(axis=0)
+        attn_weights = model.last_attention_weights[0]  # (seq_len, seq_len) or (num_heads, seq_len, seq_len)
+        
+        # Handle multi-head attention: average across heads for visualization
+        if attn_weights.dim() == 3:  # (num_heads, seq_len, seq_len)
+            attn_weights = attn_weights.mean(dim=0)  # Average -> (seq_len, seq_len)
+        
+        weights = attn_weights[: len(tokens), : len(tokens)].cpu().numpy()
+       
 
     plt.figure(figsize=(6, 5))
     plt.imshow(weights)

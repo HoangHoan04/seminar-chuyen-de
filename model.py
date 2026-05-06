@@ -161,7 +161,7 @@ class FeedForwardNetwork(nn.Module):
 class TransformerEncoderBlock(nn.Module):
     def __init__(self, d_model: int, d_ff: int, num_heads: int = 1):
         super().__init__()
-        # Nếu num_heads > 1: Dùng MultiHeadAttention (+5 điểm)
+        # Nếu num_heads > 1: Dùng MultiHeadAttention
         # Nếu num_heads = 1: Dùng SelfAttention thông thường
         if num_heads > 1:
             self.self_attention = MultiHeadAttention(d_model, num_heads)
@@ -200,7 +200,7 @@ class TransformerClassifier(nn.Module):
         super().__init__()
         self.embedding = nn.Embedding(vocab_size, d_model)
         self.pos_encoding = PositionalEncoding(d_model=d_model, max_len=max_len)
-        # Thêm num_heads để hỗ trợ Multi-Head Attention (+5 điểm)
+        # Thêm num_heads để hỗ trợ Multi-Head Attention
         self.encoder = TransformerEncoderBlock(d_model=d_model, d_ff=d_ff, num_heads=num_heads)
         self.classifier = ClassifierHead(d_model=d_model, num_classes=num_classes)
         self.last_attention_weights = None
